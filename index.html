@@ -306,7 +306,7 @@ async function loadMessages() {
 
   try {
     const res = await fetch(
-      `https://discord.com/api/v10/channels/${CHANNEL_ID}/messages?limit=50`,
+      `${BACKEND}/messages`,
       { headers: { Authorization: `Bearer ${token}` } }
     );
 
@@ -464,4 +464,5 @@ handleCallback().then(handled => {
 });
 </script>
 </body>
-</html>
+                                        </html>
+  
