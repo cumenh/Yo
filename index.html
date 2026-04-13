@@ -203,7 +203,8 @@
 const CLIENT_ID = '1493215387842777189';
 const CHANNEL_ID = '1454384520609533962';
 const REDIRECT_URI = 'https://cumenh.github.io/Yo/';
-const SCOPE = 'identify guilds guilds.members.read';
+const SCOPE = 'identify guilds';
+const BACKEND = 'https://node-template--bitgt0058.replit.app';
 
 // Value pattern regex — detects things like "100K", "0.3", "50K", "200K", "1.5K", "2x Drop = 200K" etc
 const VAL_PATTERN = /\b(\d+(?:\.\d+)?(?:K|M|k|m)?)\b/g;
@@ -224,27 +225,33 @@ let cdInterval = null;
 function login() {
   const state = Math.random().toString(36).slice(2);
   sessionStorage.setItem('oauth_state', state);
-  const url = `https://discord.com/oauth2/authorize?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=token&scope=${encodeURIComponent(SCOPE)}&state=${state}`;
+  const url = `https://discord.com/oauth2/authorize?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=code&scope=${encodeURIComponent(SCOPE)}&state=${state}`;
   window.location.href = url;
 }
 
-function handleCallback() {
-  const hash = window.location.hash.slice(1);
-  const params = new URLSearchParams(hash);
-  const accessToken = params.get('access_token');
-  const state = params.get('state');
-
-  if (accessToken) {
-    // Clean URL
-    history.replaceState(null, '', window.location.pathname);
-    token = accessToken;
+async function handleCallback() {
+  const params = new URLSearchParams(window.location.search);
+  const code = params.get('code');
+  if (!code) return false;
+  history.replaceState(null, '', window.location.pathname);
+  try {
+    const res = await fetch(`${BACKEND}/auth`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code })
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    token = data.access_token;
     sessionStorage.setItem('discord_token', token);
     showMain();
     fetchUser();
     loadMessages();
     return true;
+  } catch(e) {
+    alert('Login gagal: ' + e.message);
+    return false;
   }
-  return false;
 }
 
 function checkStoredToken() {
@@ -272,7 +279,7 @@ function logout() {
 // ── USER INFO ─────────────────────────────────────────────────────────
 async function fetchUser() {
   try {
-    const res = await fetch('https://discord.com/api/v10/users/@me', {
+    const res = await fetch(`${BACKEND}/me`, {
       headers: { Authorization: `Bearer ${token}` }
     });
     if (!res.ok) throw new Error('Token invalid');
@@ -452,9 +459,9 @@ document.getElementById('search-input').addEventListener('input', renderMessages
 // ── INIT ──────────────────────────────────────────────────────────────
 document.getElementById('btn-login').onclick = login;
 
-if (!handleCallback()) {
-  checkStoredToken();
-}
+handleCallback().then(handled => {
+  if (!handled) checkStoredToken();
+});
 </script>
 </body>
 </html>
