@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sailor Piece — Discord Value Reader</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#060810; --panel:#0d1120; --border:#1a2540;
+    --accent:#e8b84b; --accent2:#4b8ee8; --accent3:#e84b7a;
+    --text:#c8d4f0; --muted:#5a6a8a; --discord:#5865F2;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:var(--bg);color:var(--text);font-family:'Rajdhani',sans-serif;min-height:100vh}
+  body::before{
+    content:'';position:fixed;inset:0;
+    background-image:linear-gradient(rgba(75,142,232,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(75,142,232,0.04) 1px,transparent 1px);
+    background-size:40px 40px;pointer-events:none;z-index:0;
+  }
+  .container{position:relative;z-index:1;max-width:860px;margin:0 auto;padding:0 14px 40px}
+
+  header{padding:22px 0 16px;display:flex;align-items:flex-end;justify-content:space-between;border-bottom:1px solid var(--border);margin-bottom:20px}
+  .logo h1{font-family:'Bebas Neue',sans-serif;font-size:2rem;letter-spacing:4px;color:var(--accent);text-shadow:0 0 24px rgba(232,184,75,0.35);line-height:1}
+  .logo p{font-size:0.68rem;color:var(--muted);letter-spacing:3px;text-transform:uppercase;margin-top:3px}
+  .user-chip{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--border);border-radius:20px;padding:5px 12px 5px 5px;font-size:0.8rem;font-weight:700}
+  .user-chip img{width:26px;height:26px;border-radius:50%;background:var(--border)}
+  .user-chip span{color:var(--muted)}
+
+  /* Login screen */
+  #screen-login{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;text-align:center;gap:20px}
+  .discord-card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:36px 32px;max-width:360px;width:100%}
+  .discord-card .icon{font-size:3rem;margin-bottom:12px}
+  .discord-card h2{font-family:'Bebas Neue',sans-serif;font-size:1.6rem;letter-spacing:3px;color:var(--accent);margin-bottom:8px}
+  .discord-card p{font-size:0.82rem;color:var(--muted);line-height:1.6;margin-bottom:24px}
+  .btn-discord{
+    display:inline-flex;align-items:center;gap:10px;
+    background:var(--discord);color:#fff;border:none;
+    padding:13px 28px;border-radius:8px;
+    font-family:'Bebas Neue',sans-serif;font-size:1.1rem;letter-spacing:2px;
+    cursor:pointer;transition:all 0.2s;text-decoration:none;width:100%;justify-content:center;
+  }
+  .btn-discord:hover{background:#4752c4;transform:translateY(-1px)}
+  .btn-discord svg{width:22px;height:22px;fill:#fff;flex-shrink:0}
+  .note{font-size:0.65rem;color:var(--muted);margin-top:12px;letter-spacing:1px}
+
+  /* Main screen */
+  #screen-main{display:none}
+  .toolbar{display:flex;gap:10px;margin-bottom:16px;align-items:center}
+  .toolbar-left{flex:1;display:flex;gap:8px}
+  .search-wrap{flex:1;position:relative}
+  .search-wrap input{
+    width:100%;background:var(--panel);border:1px solid var(--border);
+    color:var(--text);padding:9px 14px 9px 36px;border-radius:6px;
+    font-family:'Rajdhani',sans-serif;font-size:0.9rem;font-weight:600;outline:none;
+    transition:border-color 0.2s;
+  }
+  .search-wrap input:focus{border-color:var(--accent)}
+  .search-wrap::before{content:'⌕';position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:1rem;pointer-events:none}
+  .search-wrap input::placeholder{color:var(--muted)}
+  .btn-sm{
+    background:var(--panel);border:1px solid var(--border);color:var(--muted);
+    padding:9px 14px;border-radius:6px;font-family:'Rajdhani',sans-serif;
+    font-size:0.82rem;font-weight:700;letter-spacing:1px;cursor:pointer;
+    transition:all 0.15s;white-space:nowrap;text-transform:uppercase;
+  }
+  .btn-sm:hover{color:var(--text);border-color:var(--muted)}
+  .btn-sm.primary{background:var(--accent);color:#000;border-color:var(--accent)}
+  .btn-sm.primary:hover{background:#f0ca60}
+
+  /* Stats */
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px}
+  .stat{background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:10px 12px;position:relative;overflow:hidden}
+  .stat::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+  .stat.g::before{background:var(--accent)}
+  .stat.b::before{background:var(--accent2)}
+  .stat.r::before{background:var(--accent3)}
+  .stat .l{font-size:0.6rem;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:2px}
+  .stat .v{font-family:'Bebas Neue',sans-serif;font-size:1.4rem}
+  .stat.g .v{color:var(--accent)} .stat.b .v{color:var(--accent2)} .stat.r .v{color:var(--accent3)}
+
+  /* Messages list */
+  #msg-list{display:flex;flex-direction:column;gap:5px}
+  .msg-card{
+    background:var(--panel);border:1px solid var(--border);border-radius:6px;
+    padding:11px 14px;transition:all 0.15s;
+    animation:fadeIn 0.2s ease forwards;opacity:0;
+  }
+  @keyframes fadeIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+  .msg-card:hover{border-color:rgba(232,184,75,0.25);transform:translateX(2px)}
+  .msg-meta{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+  .msg-avatar{width:22px;height:22px;border-radius:50%;background:var(--border)}
+  .msg-author{font-size:0.78rem;font-weight:700;color:var(--accent2)}
+  .msg-time{font-family:'Share Tech Mono',monospace;font-size:0.62rem;color:var(--muted);margin-left:auto}
+  .msg-text{font-size:0.88rem;color:var(--text);line-height:1.5;word-break:break-word}
+  .msg-text img{max-width:100%;border-radius:4px;margin-top:6px}
+
+  /* Value highlights */
+  .val-tag{
+    display:inline-block;background:rgba(232,184,75,0.12);
+    border:1px solid rgba(232,184,75,0.3);color:var(--accent);
+    border-radius:3px;padding:1px 6px;font-size:0.78rem;font-weight:700;
+    font-family:'Share Tech Mono',monospace;margin:1px 2px;
+  }
+
+  /* Loading */
+  #msg-loading{text-align:center;padding:40px;display:none}
+  .ring{display:inline-block;width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.7s linear infinite;margin-bottom:12px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  #msg-loading p{color:var(--muted);font-size:0.78rem;letter-spacing:2px;text-transform:uppercase}
+
+  /* Error */
+  .err-box{background:rgba(232,75,122,0.08);border:1px solid rgba(232,75,122,0.3);border-radius:6px;padding:14px;color:var(--accent3);font-size:0.82rem;text-align:center;display:none}
+
+  /* Channel info bar */
+  .ch-bar{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:8px 14px;margin-bottom:14px;font-size:0.78rem;color:var(--muted)}
+  .ch-bar .ch-name{color:var(--text);font-weight:700}
+  .ch-dot{width:7px;height:7px;border-radius:50%;background:#4be896;animation:pulse 2s infinite;flex-shrink:0}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+  .ch-count{margin-left:auto;font-family:'Share Tech Mono',monospace;font-size:0.65rem}
+
+  /* Logout */
+  .btn-logout{background:rgba(232,75,122,0.1);border:1px solid rgba(232,75,122,0.3);color:var(--accent3);padding:5px 12px;border-radius:4px;font-family:'Rajdhani',sans-serif;font-size:0.78rem;font-weight:700;letter-spacing:1px;cursor:pointer;text-transform:uppercase}
+  .btn-logout:hover{background:rgba(232,75,122,0.2)}
+
+  .no-msg{text-align:center;padding:36px;color:var(--muted);font-size:0.8rem;letter-spacing:2px;text-transform:uppercase}
+
+  footer{border-top:1px solid var(--border);margin-top:24px;padding-top:12px;display:flex;justify-content:space-between;align-items:center}
+  footer p{font-size:0.62rem;color:var(--muted)}
+  #cd{color:var(--accent);font-family:'Share Tech Mono',monospace}
+
+  @media(max-width:560px){
+    .stats{grid-template-columns:1fr 1fr}
+    .toolbar{flex-wrap:wrap}
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+<header>
+  <div class="logo">
+    <h1>SAILOR PIECE</h1>
+    <p>Discord Value Reader</p>
+  </div>
+  <div id="user-area"></div>
+</header>
+
+<!-- LOGIN SCREEN -->
+<div id="screen-login">
+  <div class="discord-card">
+    <div class="icon">⚓</div>
+    <h2>Value Tracker</h2>
+    <p>Login dengan akun Discord kamu untuk baca channel trading Sailor Piece secara langsung.</p>
+    <button class="btn-discord" id="btn-login">
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057.1 18.08.114 18.1.132 18.11a19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03z"/>
+      </svg>
+      LOGIN WITH DISCORD
+    </button>
+    <p class="note">Hanya meminta izin baca pesan (read messages). Tidak ada data yang disimpan.</p>
+  </div>
+</div>
+
+<!-- MAIN SCREEN -->
+<div id="screen-main">
+  <div class="ch-bar">
+    <span class="ch-dot"></span>
+    <span># <span class="ch-name">trading-value</span></span>
+    <span class="ch-count" id="msg-count">0 pesan</span>
+  </div>
+
+  <div class="toolbar">
+    <div class="toolbar-left">
+      <div class="search-wrap">
+        <input type="text" id="search-input" placeholder="Cari item / nilai...">
+      </div>
+      <button class="btn-sm primary" onclick="loadMessages()">↻ REFRESH</button>
+    </div>
+    <button class="btn-logout" onclick="logout()">LOGOUT</button>
+  </div>
+
+  <div class="stats">
+    <div class="stat g"><div class="l">Pesan</div><div class="v" id="st-total">0</div></div>
+    <div class="stat b"><div class="l">Item Terdeteksi</div><div class="v" id="st-items">0</div></div>
+    <div class="stat r"><div class="l">Terakhir Update</div><div class="v" id="st-time">–</div></div>
+  </div>
+
+  <div id="err-box" class="err-box"></div>
+  <div id="msg-loading"><div class="ring"></div><p>Memuat pesan...</p></div>
+  <div id="msg-list"></div>
+  <div id="no-msg" class="no-msg" style="display:none">Tidak ada pesan ditemukan</div>
+
+  <footer>
+    <p>Channel ID: 1454384520609533962</p>
+    <div>Refresh in <span id="cd">–</span></div>
+  </footer>
+</div>
+
+</div>
+
+<script>
+const CLIENT_ID = '1493215387842777189';
+const CHANNEL_ID = '1454384520609533962';
+const REDIRECT_URI = 'https://claude.ai';
+const SCOPE = 'identify guilds guilds.members.read';
+
+// Value pattern regex — detects things like "100K", "0.3", "50K", "200K", "1.5K", "2x Drop = 200K" etc
+const VAL_PATTERN = /\b(\d+(?:\.\d+)?(?:K|M|k|m)?)\b/g;
+const ITEM_KEYWORDS = [
+  '2x drop','2x luck','2x gems','2x exp','2x money',
+  'clan reroll','race reroll','trait reroll','power reroll',
+  'ragna','madoka','madara','esdeath','kokushibo',
+  'frost relic','ice crystal','dark grail','blood ring','void fragment','tempest relic','passive shard',
+  'asc','ascension','mythical chest','legendary chest','cosmetic crate','aura crate',
+  'tower key','boss ticket','rush coin','heart'
+];
+
+let token = null;
+let allMessages = [];
+let cdInterval = null;
+
+// ── AUTH ──────────────────────────────────────────────────────────────
+function login() {
+  const state = Math.random().toString(36).slice(2);
+  sessionStorage.setItem('oauth_state', state);
+  const url = `https://discord.com/oauth2/authorize?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=token&scope=${encodeURIComponent(SCOPE)}&state=${state}`;
+  window.location.href = url;
+}
+
+function handleCallback() {
+  const hash = window.location.hash.slice(1);
+  const params = new URLSearchParams(hash);
+  const accessToken = params.get('access_token');
+  const state = params.get('state');
+
+  if (accessToken) {
+    // Clean URL
+    history.replaceState(null, '', window.location.pathname);
+    token = accessToken;
+    sessionStorage.setItem('discord_token', token);
+    showMain();
+    fetchUser();
+    loadMessages();
+    return true;
+  }
+  return false;
+}
+
+function checkStoredToken() {
+  const t = sessionStorage.getItem('discord_token');
+  if (t) {
+    token = t;
+    showMain();
+    fetchUser();
+    loadMessages();
+    return true;
+  }
+  return false;
+}
+
+function logout() {
+  sessionStorage.removeItem('discord_token');
+  token = null;
+  allMessages = [];
+  if (cdInterval) clearInterval(cdInterval);
+  document.getElementById('screen-main').style.display = 'none';
+  document.getElementById('screen-login').style.display = 'flex';
+  document.getElementById('user-area').innerHTML = '';
+}
+
+// ── USER INFO ─────────────────────────────────────────────────────────
+async function fetchUser() {
+  try {
+    const res = await fetch('https://discord.com/api/v10/users/@me', {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (!res.ok) throw new Error('Token invalid');
+    const user = await res.json();
+    const avatar = user.avatar
+      ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=64`
+      : `https://cdn.discordapp.com/embed/avatars/${parseInt(user.discriminator||'0')%5}.png`;
+    document.getElementById('user-area').innerHTML = `
+      <div class="user-chip">
+        <img src="${avatar}" onerror="this.style.display='none'">
+        <span>${user.username}</span>
+      </div>
+    `;
+  } catch(e) {
+    console.warn('User fetch failed:', e.message);
+  }
+}
+
+// ── MESSAGES ──────────────────────────────────────────────────────────
+async function loadMessages() {
+  if (!token) return;
+  showLoading(true);
+  hideErr();
+
+  try {
+    const res = await fetch(
+      `https://discord.com/api/v10/channels/${CHANNEL_ID}/messages?limit=50`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+
+    if (res.status === 401) {
+      logout();
+      throw new Error('Session expired. Silakan login ulang.');
+    }
+    if (res.status === 403) {
+      throw new Error('Kamu tidak punya akses ke channel ini. Pastikan kamu sudah join server Sailor Piece.');
+    }
+    if (!res.ok) {
+      const err = await res.json().catch(()=>({}));
+      throw new Error(err.message || `HTTP ${res.status}`);
+    }
+
+    allMessages = await res.json();
+    renderMessages();
+    startCountdown(60);
+
+    const now = new Date();
+    document.getElementById('st-time').textContent =
+      now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
+
+  } catch(e) {
+    showErr(e.message);
+  } finally {
+    showLoading(false);
+  }
+}
+
+function renderMessages() {
+  const q = document.getElementById('search-input').value.toLowerCase().trim();
+  const list = document.getElementById('msg-list');
+  const noMsg = document.getElementById('no-msg');
+  list.innerHTML = '';
+
+  let filtered = allMessages.filter(m => {
+    if (!m.content && !m.embeds?.length) return false;
+    const content = (m.content || '').toLowerCase();
+    if (!q) return true;
+    return content.includes(q) ||
+      ITEM_KEYWORDS.some(k => k.includes(q) && content.includes(k));
+  });
+
+  // Count items detected
+  let itemCount = 0;
+  allMessages.forEach(m => {
+    const c = (m.content||'').toLowerCase();
+    if (ITEM_KEYWORDS.some(k => c.includes(k))) itemCount++;
+  });
+
+  document.getElementById('st-total').textContent = allMessages.length;
+  document.getElementById('st-items').textContent = itemCount;
+  document.getElementById('msg-count').textContent = allMessages.length + ' pesan';
+
+  if (!filtered.length) {
+    noMsg.style.display = 'block';
+    return;
+  }
+  noMsg.style.display = 'none';
+
+  filtered.forEach((msg, idx) => {
+    const card = document.createElement('div');
+    card.className = 'msg-card';
+    card.style.animationDelay = idx * 0.02 + 's';
+
+    const avatar = msg.author?.avatar
+      ? `https://cdn.discordapp.com/avatars/${msg.author.id}/${msg.author.avatar}.png?size=40`
+      : '';
+    const time = new Date(msg.timestamp).toLocaleString('id-ID', {
+      day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit'
+    });
+    const author = msg.author?.global_name || msg.author?.username || 'Unknown';
+
+    // Highlight values in content
+    let content = escHtml(msg.content || '');
+    content = content.replace(VAL_PATTERN, (m) => `<span class="val-tag">${m}</span>`);
+
+    // Embeds
+    let embedHtml = '';
+    if (msg.embeds?.length) {
+      msg.embeds.forEach(e => {
+        if (e.description) {
+          let desc = escHtml(e.description);
+          desc = desc.replace(VAL_PATTERN, m => `<span class="val-tag">${m}</span>`);
+          embedHtml += `<div style="margin-top:8px;padding:8px 10px;background:rgba(75,142,232,0.06);border-left:3px solid var(--accent2);border-radius:0 4px 4px 0;font-size:0.83rem;color:var(--muted)">${desc}</div>`;
+        }
+      });
+    }
+
+    // Attachments
+    let attachHtml = '';
+    if (msg.attachments?.length) {
+      msg.attachments.forEach(a => {
+        if (a.content_type?.startsWith('image/')) {
+          attachHtml += `<img src="${a.url}" alt="attachment" style="max-width:100%;border-radius:4px;margin-top:6px;max-height:200px;object-fit:contain">`;
+        }
+      });
+    }
+
+    card.innerHTML = `
+      <div class="msg-meta">
+        ${avatar ? `<img class="msg-avatar" src="${avatar}" onerror="this.style.display='none'">` : ''}
+        <span class="msg-author">${escHtml(author)}</span>
+        <span class="msg-time">${time}</span>
+      </div>
+      <div class="msg-text">${content}${embedHtml}${attachHtml}</div>
+    `;
+    list.appendChild(card);
+  });
+}
+
+// ── UTILS ─────────────────────────────────────────────────────────────
+function escHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function showMain() {
+  document.getElementById('screen-login').style.display = 'none';
+  document.getElementById('screen-main').style.display = 'block';
+}
+
+function showLoading(v) {
+  document.getElementById('msg-loading').style.display = v ? 'block' : 'none';
+}
+
+function showErr(msg) {
+  const el = document.getElementById('err-box');
+  el.textContent = '⚠ ' + msg;
+  el.style.display = 'block';
+}
+
+function hideErr() {
+  document.getElementById('err-box').style.display = 'none';
+}
+
+function startCountdown(secs) {
+  if (cdInterval) clearInterval(cdInterval);
+  let s = secs;
+  cdInterval = setInterval(() => {
+    s--;
+    document.getElementById('cd').textContent = s + 's';
+    if (s <= 0) { clearInterval(cdInterval); loadMessages(); }
+  }, 1000);
+}
+
+// ── SEARCH ────────────────────────────────────────────────────────────
+document.getElementById('search-input').addEventListener('input', renderMessages);
+
+// ── INIT ──────────────────────────────────────────────────────────────
+document.getElementById('btn-login').onclick = login;
+
+if (!handleCallback()) {
+  checkStoredToken();
+}
+</script>
+</body>
+</html>
